@@ -36,6 +36,8 @@ set (PIC_FILES
      ../pic/boundaries/piston.c++
      ../pic/pushers/boris.c++
      ../pic/pushers/boris_drag.c++
+     ../pic/pushers/boris_rad.c++
+     ../pic/pushers/boris_grav.c++
      ../pic/pushers/vay.c++
      ../pic/interpolators/linear.c++
      ../pic/depositers/zigzag.c++
@@ -49,7 +51,10 @@ set (FFE_FILES
      pyffe.c++
      ../ffe/tile.c++
      ../ffe/skinny_yee.c++
-     ../ffe/currents/rffe.c++
+     ../ffe/currents/rffe2.c++
+     ../ffe/currents/rffe4.c++
+     ../ffe/currents/ffe2.c++
+     ../ffe/currents/ffe4.c++
      )
 
 set (IO_FILES 

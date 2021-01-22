@@ -1,25 +1,12 @@
-#include "boris_drag.h"
+#include "boris_rad.h"
 
 #include <cmath> 
 #include "../../tools/signum.h"
 
 using toolbox::sign;
 
-
 template<size_t D, size_t V>
-double pic::BorisPusherDrag<D,V>::kn(double x)
-{
-  if (temp == 0.0) return 1.0; // Thompson limit
-
-  double sig;
-  sig = (1.0 - 4.0/x - 8.0/x/x)*log(1.+x) + 0.5 + 8.0/x - 1.0/(2.0*(1. + x)*(1. + x));
-  return (3.0/4.0)*sig/x;
-}
-
-
-
-template<size_t D, size_t V>
-void pic::BorisPusherDrag<D,V>::push_container(
+void pic::BorisPusherRad<D,V>::push_container(
     pic::ParticleContainer<D>& container, 
     double cfl)
 {
@@ -59,14 +46,11 @@ void pic::BorisPusherDrag<D,V>::push_container(
   int n2 = nparts;
 
   real_long u0, v0, w0;
-  real_long uxt, uyt, uzt;
+  real_long uxt;
   real_long u1, v1, w1;
-  real_long g, f, ginv, kncorr, gamt, ut;
-  real_long dragx, dragy, dragz, dragv;
-  real_long thr;
-
-  // maximum drag force experienced by particle
-  real_long dragthr = 0.1; 
+  real_long g, f, ginv;
+  real_long pressx, pressy, pressz;
+  real_long gamx;
 
   real_long c = cfl;
   real_long cinv = 1.0/c;
@@ -74,9 +58,12 @@ void pic::BorisPusherDrag<D,V>::push_container(
   // charge-to-mass ratio (sign only because fields are in units of q)
   real_long qm = sign(container.q)/container.m;
 
+  real_long loc0n;
   real_long vel0n, vel1n, vel2n;
 
   for(int n=n1; n<n2; n++) {
+
+    loc0n = static_cast<real_long>( loc[0][n] ); // x position
 
     vel0n = static_cast<real_long>( vel[0][n] );
     vel1n = static_cast<real_long>( vel[1][n] );
@@ -116,35 +103,37 @@ void pic::BorisPusherDrag<D,V>::push_container(
     w0 = w0 + u1*by0 - v1*bx0 + ez0;
 
 
-    //--------------------------------------------------
-    // addition of drag (gamma at half time step)
+    // rad pressure components; apply pressure only to particles behind the rad beam front
+    if(loc0n <= beam_locx){
 
-    // u at t + dt/2
-    uxt  = (u0*cinv + vel0n)*0.5;
-    uyt  = (v0*cinv + vel1n)*0.5;
-    uzt  = (w0*cinv + vel2n)*0.5;
-    ut   = sqrt(uxt*uxt + uyt*uyt + uzt*uzt);
-    gamt = sqrt(1.0 + ut*ut);
+        // addition of radiation pressure (gamma at half time step)
+        // u at t + dt/2
+        uxt  = (u0*cinv + vel0n)*0.5;
+        // uyt  = (v0*cinv + vel1n)*0.5;
+        // uzt  = (w0*cinv + vel2n)*0.5;
+        // ut   = sqrt(uxt*uxt + uyt*uyt + uzt*uzt);
 
-    // subtract drag with Klein-Nishina reduction
-    // A g^2 beta = A g^2 u/g = A g u
-    kncorr = kn(3.0*gamt*temp);
 
-    // drag components
-    dragx = c*drag*kncorr*gamt*gamt*(uxt/gamt);
-    dragy = c*drag*kncorr*gamt*gamt*(uyt/gamt);
-    dragz = c*drag*kncorr*gamt*gamt*(uzt/gamt);
+        // betax component of the prtcl velocity
+        // gamt = sqrt(1.0 + ut*ut);
+        // betax = uxt/gamt;
+        //gamx  = 1.0/sqrt(1.0 - betax*betax):
+        gamx = sqrt(1.0 + uxt*uxt);
 
-    // limit drag to maximum of dragthr of velocity
-    dragv = sqrt(dragx*dragx + dragy*dragy + dragz*dragz)/ut;
-    thr = 1.0;
-    if (dragv > dragthr) thr = dragthr/dragv;
+        pressx = c*drag/gamx/gamx;
+        pressy = 0;
+        pressz = 0;
+    } else {
+        pressx = 0;
+        pressy = 0;
+        pressz = 0;
+    }
 
-    // apply drag
-    vel[0][n] = static_cast<real_prtcl>( u0*cinv - thr*dragx );
-    vel[1][n] = static_cast<real_prtcl>( v0*cinv - thr*dragy );
-    vel[2][n] = static_cast<real_prtcl>( w0*cinv - thr*dragz );
 
+    // apply pressure
+    vel[0][n] = static_cast<real_prtcl>( u0*cinv + pressx );
+    vel[1][n] = static_cast<real_prtcl>( v0*cinv + pressy );
+    vel[2][n] = static_cast<real_prtcl>( w0*cinv + pressz );
 
     // position advance
     // NOTE: no mixed-precision calc here. Can be problematic.
@@ -173,6 +162,6 @@ void pic::BorisPusherDrag<D,V>::push_container(
 //--------------------------------------------------
 // explicit template instantiation
 
-template class pic::BorisPusherDrag<1,3>; // 1D3V
-template class pic::BorisPusherDrag<2,3>; // 2D3V
-template class pic::BorisPusherDrag<3,3>; // 3D3V
+template class pic::BorisPusherRad<1,3>; // 1D3V
+template class pic::BorisPusherRad<2,3>; // 2D3V
+template class pic::BorisPusherRad<3,3>; // 3D3V
